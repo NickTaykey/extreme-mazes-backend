@@ -9,9 +9,22 @@ class Cell {
   }
 }
 
+const N_ROWS = 50;
+const N_COLS = 50;
+const CELL_PADDING = 2;
+const CANVAS_SIZE = 750;
+
+const CELL_WIDTH = (CANVAS_SIZE - 2 * CELL_PADDING) / N_COLS;
+const CELL_HEIGHT = (CANVAS_SIZE - 2 * CELL_PADDING) / N_ROWS;
+
 const maze_helpers = {
-  N_ROWS: 50,
-  N_COLS: 50,
+  N_ROWS,
+  N_COLS,
+  CELL_PADDING,
+  CANVAS_SIZE,
+
+  CELL_WIDTH,
+  CELL_HEIGHT,
 
   direction: { top: 0, right: 1, bottom: 2, left: 3 },
   allCells: [],
