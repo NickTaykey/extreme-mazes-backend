@@ -11,7 +11,7 @@ const genRandomHEXColor = () => {
 };
 
 // Create new maze
-router.post('/', async function (req, res, next) {
+router.post('/', async (req, res, next) => {
   maze_helpers.initializeMaze();
   maze_helpers.buildMaze();
 
@@ -34,25 +34,45 @@ const io = require('socket.io')(http, {
   },
 });
 
-io.on('connection', function (socket) {
+let currentPlayerLastPosition = [];
+let currentPlayerId = null;
+let currentMazeId = null;
+
+io.on('connection', (socket) => {
   console.log('A user connected');
 
-  socket.on('disconnect', function () {
-    console.log('A user disconnected');
+  socket.on('disconnect', async () => {
+    if (!currentPlayerId || !currentMazeId) return;
+
+    const playersListPath = `/mazes/${currentMazeId}/playersList`;
+    const playersList = (await get(ref(db, playersListPath))).val();
+
+    for (let [pid, obj] of Object.entries(playersList)) {
+      if (pid === currentPlayerId) {
+        playersList[pid] = { ...obj, lastPosition: currentPlayerLastPosition };
+        break;
+      }
+    }
+
+    set(ref(db, playersListPath), playersList);
   });
 
-  socket.on('add-player', async ({ mazeId }) => {
-    const baseRefPath = `mazes/${mazeId}`;
-
+  socket.on('add-player', async (mazeId) => {
     const { CELL_WIDTH, CELL_HEIGHT } = maze_helpers;
 
-    await push(ref(db, `${baseRefPath}/playersList`), {
-      lastPosition: [CELL_WIDTH * 0.5, CELL_HEIGHT * 0.5],
+    currentPlayerLastPosition = [CELL_WIDTH * 0.5, CELL_HEIGHT * 0.5];
+    currentMazeId = mazeId;
+
+    await push(ref(db, `/mazes/${currentMazeId}/playersList`), {
+      lastPosition: currentPlayerLastPosition,
       color: genRandomHEXColor(),
     });
 
-    const { JSONmaze, playersList } = (await get(ref(db, baseRefPath))).val();
-    const currentPlayerId = Object.keys(playersList).at(-1);
+    const { JSONmaze, playersList } = (
+      await get(ref(db, `/mazes/${currentMazeId}`))
+    ).val();
+
+    currentPlayerId = Object.keys(playersList).at(-1);
 
     io.sockets.sockets.get(socket.id).emit('players-state-transmition', {
       currentPlayerId,
@@ -64,10 +84,11 @@ io.on('connection', function (socket) {
   });
 
   socket.on('board-state-update-request', async (mazeId) => {
-    const gameRef = ref(db, `mazes/${mazeId}`);
+    const gameRef = ref(db, `/mazes/${mazeId}`);
 
     const { JSONmaze, playersList } = (await get(gameRef)).val();
     const currentPlayerId = Object.keys(playersList).at(-1);
+    currentMazeId = mazeId;
 
     io.sockets.sockets.get(socket.id).emit('players-state-transmition', {
       currentPlayerId,
@@ -81,12 +102,13 @@ io.on('connection', function (socket) {
   socket.on(
     'request-update-player-postion',
     async ({ newPosition, playerId }) => {
+      currentPlayerLastPosition = newPosition;
       socket.emit('update-player-position', { playerId, newPosition });
     }
   );
 });
 
-http.listen(8889, function () {
+http.listen(8889, () => {
   console.log('listening on *:8889');
 });
 
