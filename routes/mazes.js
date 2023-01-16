@@ -34,16 +34,17 @@ const io = require('socket.io')(http, {
   },
 });
 
-let currentPlayerLastPosition = [];
-let currentPlayerId = null;
-let currentMazeId = null;
-
 io.on('connection', (socket) => {
-  console.log('A user connected');
+  let currentPlayerLastPosition = [];
+  let currentPlayerId = null;
+  let currentMazeId = null;
+
+  socket.on('join', (room) => {
+    currentMazeId = room;
+    socket.join(room);
+  });
 
   socket.on('disconnect', async () => {
-    console.log('user disconected');
-
     if (!currentPlayerId || !currentMazeId) return;
 
     const playersListPath = `/mazes/${currentMazeId}/playersList`;
@@ -82,7 +83,7 @@ io.on('connection', (socket) => {
       JSONmaze,
     });
 
-    io.emit('update-board-state', playersList);
+    io.in(currentMazeId).emit('update-board-state', playersList);
   });
 
   socket.on('board-state-update-request', async ({ mazeId, playerId }) => {
@@ -98,14 +99,16 @@ io.on('connection', (socket) => {
       JSONmaze,
     });
 
-    io.emit('update-board-state', playersList);
+    io.in(currentMazeId).emit('update-board-state', playersList);
+    // socket.broadcast.to(currentMazeId).emit('update-board-state', playersList);
+    // io.to(currentMazeId).emit('update-board-state', playersList);
   });
 
   socket.on(
     'request-update-player-postion',
     async ({ newPosition, playerId }) => {
       currentPlayerLastPosition = newPosition;
-      socket.broadcast.emit('update-player-position', {
+      io.in(currentMazeId).emit('update-player-position', {
         newPosition,
         playerId,
       });
