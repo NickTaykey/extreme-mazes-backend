@@ -42,6 +42,8 @@ io.on('connection', (socket) => {
   console.log('A user connected');
 
   socket.on('disconnect', async () => {
+    console.log('user disconected');
+
     if (!currentPlayerId || !currentMazeId) return;
 
     const playersListPath = `/mazes/${currentMazeId}/playersList`;
@@ -75,35 +77,38 @@ io.on('connection', (socket) => {
     currentPlayerId = Object.keys(playersList).at(-1);
 
     io.sockets.sockets.get(socket.id).emit('players-state-transmition', {
-      currentPlayerId,
-      playersList,
+      playerObject: Object.values(playersList).at(-1),
+      playerId: currentPlayerId,
       JSONmaze,
     });
 
-    socket.emit('update-board-state', playersList);
+    io.emit('update-board-state', playersList);
   });
 
-  socket.on('board-state-update-request', async (mazeId) => {
+  socket.on('board-state-update-request', async ({ mazeId, playerId }) => {
     const gameRef = ref(db, `/mazes/${mazeId}`);
 
     const { JSONmaze, playersList } = (await get(gameRef)).val();
-    const currentPlayerId = Object.keys(playersList).at(-1);
+    currentPlayerId = playerId;
     currentMazeId = mazeId;
 
     io.sockets.sockets.get(socket.id).emit('players-state-transmition', {
-      currentPlayerId,
-      playersList,
+      playerObject: playersList[playerId],
+      playerId,
       JSONmaze,
     });
 
-    socket.emit('update-board-state', playersList);
+    io.emit('update-board-state', playersList);
   });
 
   socket.on(
     'request-update-player-postion',
     async ({ newPosition, playerId }) => {
       currentPlayerLastPosition = newPosition;
-      socket.emit('update-player-position', { playerId, newPosition });
+      socket.broadcast.emit('update-player-position', {
+        newPosition,
+        playerId,
+      });
     }
   );
 });
