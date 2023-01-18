@@ -52,12 +52,18 @@ io.on('connection', (socket) => {
 
     for (let [pid, obj] of Object.entries(playersList)) {
       if (pid === currentPlayerId) {
-        playersList[pid] = { ...obj, lastPosition: currentPlayerLastPosition };
+        playersList[pid] = {
+          ...obj,
+          lastPosition: currentPlayerLastPosition,
+          active: false,
+        };
         break;
       }
     }
 
     set(ref(db, playersListPath), playersList);
+
+    io.in(currentMazeId).emit('remove-disconnected-player', currentPlayerId);
   });
 
   socket.on('add-player', async (mazeId) => {
@@ -69,6 +75,7 @@ io.on('connection', (socket) => {
     await push(ref(db, `/mazes/${currentMazeId}/playersList`), {
       lastPosition: currentPlayerLastPosition,
       color: genRandomHEXColor(),
+      active: true,
     });
 
     const { JSONmaze, playersList } = (
@@ -93,15 +100,20 @@ io.on('connection', (socket) => {
     currentPlayerId = playerId;
     currentMazeId = mazeId;
 
+    const playerObjectRef = ref(db, `/mazes/${mazeId}/playersList/${playerId}`);
+    const playerObject = (await get(playerObjectRef)).val();
+    playerObject.active = true;
+    playersList[currentPlayerId] = playerObject;
+
+    set(playerObjectRef, playerObject);
+
     io.sockets.sockets.get(socket.id).emit('players-state-transmition', {
-      playerObject: playersList[playerId],
+      playerObject,
       playerId,
       JSONmaze,
     });
 
     io.in(currentMazeId).emit('update-board-state', playersList);
-    // socket.broadcast.to(currentMazeId).emit('update-board-state', playersList);
-    // io.to(currentMazeId).emit('update-board-state', playersList);
   });
 
   socket.on(
