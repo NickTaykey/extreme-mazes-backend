@@ -12,7 +12,7 @@ class Cell {
 const N_ROWS = 50;
 const N_COLS = 50;
 const CELL_PADDING = 2;
-const CANVAS_SIZE = 750;
+const CANVAS_SIZE = 400;
 
 const CELL_WIDTH = (CANVAS_SIZE - 2 * CELL_PADDING) / N_COLS;
 const CELL_HEIGHT = (CANVAS_SIZE - 2 * CELL_PADDING) / N_ROWS;
